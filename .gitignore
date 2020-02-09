@@ -1,0 +1,14 @@
+
+# data files
+nba-movement-data/
+players_data/
+players_index.csv
+pt_data/
+
+# python stuff
+*.ipynb_checkpoints/
+*__pycache__/
+
+# other stuff
+*.swp
+
