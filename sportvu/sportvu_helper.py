@@ -111,33 +111,35 @@ def render_play(game_data, event_id):
     tracking = game_data.tracking_data
     event = tracking[tracking['event_id'] == event_id]
     team_a, team_b = event['team_id'].unique()[1:]
-
-    times = event['game_clock'].unique()
+    
+    total_frames = int(event.shape[0]/11)
 
     particles_a, = ax.plot([], [], marker = 'o', linestyle = 'None', color = 'b')
     particles_b, = ax.plot([], [], marker = 'x', linestyle = 'None', color = 'r')
     particles_ball, = ax.plot([], [], marker = 'o', linestyle = 'None', color = 'orange')
+    text = ax.text(38, 46, "")
 
     ax.set_xlim([0, 94])
     ax.set_ylim([0, 50])
 
     def animate(i):
-        snapshot = event[event['game_clock'] == times[i]]
-        if len(snapshot) == 11:
-            ball_pos = snapshot[snapshot['team_id'] == -1][['x_loc', 'y_loc']].values
-            team_a_pos = snapshot[snapshot['team_id'] == team_a][['x_loc', 'y_loc']].values
-            team_b_pos = snapshot[snapshot['team_id'] == team_b][['x_loc', 'y_loc']].values
+        snapshot = event.iloc[i * 11: (i+1) * 11,:]
+        ball_pos = snapshot[snapshot['team_id'] == -1][['x_loc', 'y_loc']].values
+        team_a_pos = snapshot[snapshot['team_id'] == team_a][['x_loc', 'y_loc']].values
+        team_b_pos = snapshot[snapshot['team_id'] == team_b][['x_loc', 'y_loc']].values
 
-            particles_a.set_data(team_a_pos[:,0], team_a_pos[:,1])
-            particles_a.set_markersize(6)
+        particles_a.set_data(team_a_pos[:,0], team_a_pos[:,1])
+        particles_a.set_markersize(6)
 
-            particles_b.set_data(team_b_pos[:,0], team_b_pos[:,1])
-            particles_b.set_markersize(6)
+        particles_b.set_data(team_b_pos[:,0], team_b_pos[:,1])
+        particles_b.set_markersize(6)
 
-            particles_ball.set_data(ball_pos[:,0], ball_pos[:,1])
-            particles_ball.set_markersize(6)
+        particles_ball.set_data(ball_pos[:,0], ball_pos[:,1])
+        particles_ball.set_markersize(6)
 
-            return particles_a, particles_b, particles_ball,
+        text.set_text(str(snapshot['game_clock'].values[0]))
 
-    ani = animation.FuncAnimation(fig, animate, frames = len(times), interval = 25, blit = True)
+        return particles_a, particles_b, particles_ball, text,
+
+    ani = animation.FuncAnimation(fig, animate, frames = total_frames, interval = 25, blit = True)
     return ani
