@@ -8,6 +8,20 @@ from datetime import datetime
 mx = interp1d([-4.75, 42.5], [0, 47])
 my = interp1d([-25, 25], [0, 50])
 
+class GameData(object):
+
+    def __init__(self, game_id, gd, ed, sd):
+        self.game_id = game_id
+        self.tracking_data = gd
+        self.event_data = ed
+        self.shot_data = sd
+
+def load_game_index():
+    return pd.read_csv("nba-movement-data/data/csv/index.csv")
+
+def load_player_index():
+    return pd.read_csv("players_index.csv")
+
 def load_game_data(game_id):
     """
     Load the game data for a specified game id.
@@ -18,14 +32,13 @@ def load_game_data(game_id):
             The game id to load
     Returns
     ----------
-        gd : pd.DataFrame
-            A DataFrame with full tracking events for the game
-        ed : pd.DataFrame
-            A DataFrame with every event for the game
-        sd : pd.DataFrame
-            A DataFrame with every shot for the game
+        game : GameData
+            GameData object containing 3 dataframes with
+            tracking, event, and shot data
     """
-
+    game_id = str(game_id)
+    if len(game_id) != 10:
+        game_id = "00" + str(game_id)
     gd = pd.read_csv("nba-movement-data/data/csv/%s.csv" % game_id)
     ed = pd.read_csv("nba-movement-data/data/events/%s.csv" % game_id)
     sd = pd.read_csv("nba-movement-data/data/shots/shots.csv")
@@ -34,16 +47,16 @@ def load_game_data(game_id):
     gd = pd.merge(gd, ed[["EVENTNUM","EVENTMSGTYPE"]],
                   left_on = "event_id", right_on = "EVENTNUM",
                   how = 'left')
-    gd = pd.merge(gd, player_index, 
+    gd = pd.merge(gd, player_index,
                   left_on = "player_id", right_on = "PLAYER_ID",
                   how = 'left')
     sd = sd[sd["GAME_ID"] == int(game_id)]
 
-    # Convert shot map coordinates to court coordinates 
+    # Convert shot map coordinates to court coordinates
     htm_id,vtm_id = gd[gd["event_id"] == 1]["team_id"].unique()[1:]
 
     def map_coordinates(shot):
-        
+
         x_loc_copy = shot["LOC_X"]
         y_loc_copy = shot["LOC_Y"]
 
@@ -51,7 +64,7 @@ def load_game_data(game_id):
             y_loc_copy = 425
         if y_loc_copy < -47.5:
             y_loc_copy = -47.5
-        
+
         shot["LOC_X"] = mx(y_loc_copy/10)
         shot["LOC_Y"] = my(x_loc_copy/10)
         period = shot["PERIOD"]
@@ -74,7 +87,7 @@ def load_game_data(game_id):
 
     ed = ed.apply(convert_time, axis = 1)
 
-    return gd, ed, sd
+    return GameData(game_id, gd, ed, sd)
 
 def render_play(game_data, event_id):
     """
@@ -82,11 +95,11 @@ def render_play(game_data, event_id):
 
     Parameters
     ----------
-    game_data : pd.DataFrame
-        DataFrame of the complete tracking data of the game
+    game_data : GameData
+        GameData object with full tracking data of the game
     event_id : string
         Event id of the event to render
-    
+
     Returns
     ----------
     ani : matplotlib.animation
@@ -95,7 +108,8 @@ def render_play(game_data, event_id):
 
     fig, ax = plt.subplots()
 
-    event = game_data[game_data['event_id'] == event_id]
+    tracking = game_data.tracking_data
+    event = tracking[tracking['event_id'] == event_id]
     team_a, team_b = event['team_id'].unique()[1:]
 
     times = event['game_clock'].unique()
@@ -106,7 +120,7 @@ def render_play(game_data, event_id):
 
     ax.set_xlim([0, 94])
     ax.set_ylim([0, 50])
-    
+
     def animate(i):
         snapshot = event[event['game_clock'] == times[i]]
         if len(snapshot) == 11:
@@ -125,5 +139,5 @@ def render_play(game_data, event_id):
 
             return particles_a, particles_b, particles_ball,
 
-    ani = animation.FuncAnimation(fig, animate, frames = len(times), interval = 25, blit = True)            
+    ani = animation.FuncAnimation(fig, animate, frames = len(times), interval = 25, blit = True)
     return ani
