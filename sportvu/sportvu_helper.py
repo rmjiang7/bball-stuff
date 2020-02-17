@@ -111,8 +111,19 @@ def render_play(game_data, event_id):
     tracking = game_data.tracking_data
     event = tracking[tracking['event_id'] == event_id]
     team_a, team_b = event['team_id'].unique()[1:]
-    
-    total_frames = int(event.shape[0]/11)
+
+    frame_idxs = []
+    global_idx = 0
+
+    while global_idx != event.shape[0]:
+        snapshot = event.iloc[global_idx: global_idx + 11,:]
+        frame_idxs.append(global_idx)
+        if snapshot.iloc[0]['player_id'] != -1:
+            global_idx += 10
+        else:
+            global_idx += 11
+
+    frame_idxs.append(global_idx)
 
     particles_a, = ax.plot([], [], marker = 'o', linestyle = 'None', color = 'b')
     particles_b, = ax.plot([], [], marker = 'x', linestyle = 'None', color = 'r')
@@ -122,8 +133,8 @@ def render_play(game_data, event_id):
     ax.set_xlim([0, 94])
     ax.set_ylim([0, 50])
 
-    def animate(i):
-        snapshot = event.iloc[i * 11: (i+1) * 11,:]
+    def animate(i, frame_idxs):
+        snapshot = event.iloc[frame_idxs[i]: frame_idxs[i+1],:]
         ball_pos = snapshot[snapshot['team_id'] == -1][['x_loc', 'y_loc']].values
         team_a_pos = snapshot[snapshot['team_id'] == team_a][['x_loc', 'y_loc']].values
         team_b_pos = snapshot[snapshot['team_id'] == team_b][['x_loc', 'y_loc']].values
@@ -141,5 +152,8 @@ def render_play(game_data, event_id):
 
         return particles_a, particles_b, particles_ball, text,
 
-    ani = animation.FuncAnimation(fig, animate, frames = total_frames, interval = 25, blit = True)
+    ani = animation.FuncAnimation(fig, animate,
+                                  frames = len(frame_idxs) - 1,
+                                  fargs = (frame_idxs,),
+                                  interval = 25, blit = True)
     return ani
