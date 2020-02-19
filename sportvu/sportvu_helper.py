@@ -17,10 +17,10 @@ class GameData(object):
         self.shot_data = sd
 
 def load_game_index():
-    return pd.read_csv("nba-movement-data/data/csv/index.csv")
+    return pd.read_csv("../data/nba-movement-data/data/csv/index.csv")
 
 def load_player_index():
-    return pd.read_csv("players_index.csv")
+    return pd.read_csv("../data/players_index.csv")
 
 def load_game_data(game_id):
     """
@@ -39,10 +39,10 @@ def load_game_data(game_id):
     game_id = str(game_id)
     if len(game_id) != 10:
         game_id = "00" + str(game_id)
-    gd = pd.read_csv("nba-movement-data/data/csv/%s.csv" % game_id)
-    ed = pd.read_csv("nba-movement-data/data/events/%s.csv" % game_id)
-    sd = pd.read_csv("nba-movement-data/data/shots/shots.csv")
-    player_index = pd.read_csv("players_index.csv")
+    gd = pd.read_csv("../data/nba-movement-data/data/csv/%s.csv" % game_id)
+    ed = pd.read_csv("../data/nba-movement-data/data/events/%s.csv" % game_id)
+    sd = pd.read_csv("../data/nba-movement-data/data/shots/shots.csv")
+    player_index = pd.read_csv("../data/players_index.csv")
 
     gd = pd.merge(gd, ed[["EVENTNUM","EVENTMSGTYPE"]],
                   left_on = "event_id", right_on = "EVENTNUM",
