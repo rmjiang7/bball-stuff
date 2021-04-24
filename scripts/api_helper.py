@@ -1,12 +1,7 @@
 import requests
-import time
-import sys
 import json
-import pandas as pd
-import argparse
-import pathlib
-import os.path
 import abc
+
 
 class Client(object):
 
@@ -27,11 +22,15 @@ class Client(object):
             'Pragma': 'no-cache'
         }
 
-    def make_request(self, endpoint):
+    def make_request(self, endpoint, format=True):
         url, params = endpoint.build_request()
-        resp = requests.get(url, headers = self.headers, params = params)
-        json_response = json.loads(resp.text)
-        return endpoint.format_response(json_response)
+        resp = requests.get(url, headers=self.headers, params=params)
+        if format:
+            json_response = json.loads(resp.text)
+            return endpoint.format_response(json_response)
+        else:
+            return resp
+
 
 class Endpoint(object):
 
