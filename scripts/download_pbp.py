@@ -7,13 +7,8 @@ from api_helper import Client
 from endpoints import PlayByPlay, BoxScoreAdvanced
 
 # Download each measure type, for each season
-PtMeasureTypes = ['Drives', 'Defense', 'CatchShoot',
-                  'Passing', 'Possessions', 'PullUpShot',
-                  'Rebounding', 'Efficiency', 'SpeedDistance',
-                  'ElbowTouch', 'PostTouch', 'PaintTouch']
-Seasons = ['2013-14', '2014-15', '2015-16',
-           '2016-17', '2017-18', '2018-19', 
-           '2019-20']
+Seasons = ['2013-14', '2014-15', '2016-17', 
+           '2017-18', '2018-19', '2019-20']
 
 def calculate_time_at_period(period):
     if period > 5:
@@ -22,28 +17,34 @@ def calculate_time_at_period(period):
         return (720 * (period - 1)) * 10
 
 def split_subs(df, tag):
-    subs = df[[tag, 'PERIOD', 'EVENTNUM']]
+    subs = df[[tag, 'PERIOD', 'time']]
     subs['SUB'] = tag
-    subs.columns = ['PLAYER_ID', 'PERIOD', 'EVENTNUM', 'SUB']
+    subs.columns = ['PLAYER_ID', 'PERIOD', 'time', 'SUB']
     return subs
 
-def get_pbp_and_starters(game_id):
+def get_pbp_and_starters(game_id, pbp = None):
     
     client = Client()
     
-    e_pbp = PlayByPlay(game_id)
-    pbp = client.make_request(e_pbp)
+    if pbp is None:
+        e_pbp = PlayByPlay(game_id)
+        pbp = client.make_request(e_pbp)
+    
+        def f(v):
+            m, s = v.split(":")
+            return 12 * 60 - (int(m) * 60 + int(s))
+        pbp['time'] = pbp['PCTIMESTRING'].apply(f)
     
     # Get the subsitution times
-    substitutions = pbp[pbp["EVENTMSGTYPE"] == 8][['PERIOD', 'EVENTNUM', 'PLAYER1_ID', 'PLAYER2_ID']]
-    substitutions.columns = ['PERIOD', 'EVENTNUM', 'OUT', 'IN']
+    substitutions = pbp[pbp["EVENTMSGTYPE"] == 8][['PERIOD', 'time', 'PLAYER1_ID', 'PLAYER2_ID']]
+    substitutions.columns = ['PERIOD', 'time', 'OUT', 'IN']
 
     # Split to sub in and sub out events
     subs_in = split_subs(substitutions, 'IN')
     subs_out = split_subs(substitutions, 'OUT')
 
-    full_subs = pd.concat([subs_out, subs_in], axis=0).reset_index()[['PLAYER_ID', 'PERIOD', 'EVENTNUM', 'SUB']]
-    first_event_of_period = full_subs.loc[full_subs.groupby(by=['PERIOD', 'PLAYER_ID'])['EVENTNUM'].idxmin()]
+    full_subs = pd.concat([subs_out, subs_in], axis=0).reset_index()[['PLAYER_ID', 'PERIOD', 'time', 'SUB']]
+    first_event_of_period = full_subs.loc[full_subs.groupby(by=['PERIOD', 'PLAYER_ID'])['time'].idxmin()]
     players_subbed_in_at_each_period = first_event_of_period[first_event_of_period['SUB'] == 'IN'][['PLAYER_ID', 'PERIOD', 'SUB']]
 
     periods = players_subbed_in_at_each_period['PERIOD'].drop_duplicates().values.tolist()
@@ -65,10 +66,7 @@ def get_pbp_and_starters(game_id):
         frames.append(joined_players)
 
     starters = pd.concat(frames)
-    def f(v):
-        m, s = v.split(":")
-        return 12 * 60 - (int(m) * 60 + int(s))
-    pbp['time'] = pbp['PCTIMESTRING'].apply(f)
+    
     
     return pbp, starters
 
@@ -88,3 +86,15 @@ for season in Seasons:
             except:
                 print("Error")
                 pass
+        else:
+            print("Reprocessing {} - {}".format(season, gid))
+            if os.path.exists("../data/pbp/{}/{}_starters.csv".format(season, gid)):
+                df = pd.read_csv("../data/pbp/{}/{}_starters.csv".format(season, gid))
+                if (df.groupby(['TEAM_ABBREVIATION', 'PERIOD'])['PLAYER_ID'].count() != 5).sum() > 0:
+                    pbp = pd.read_csv("../data/pbp/{}/{}.csv".format(season, gid))
+                    _, starters = get_pbp_and_starters(gid, pbp = pbp)
+                    starters.to_csv("../data/pbp/{}/{}_{}.csv".format(season, gid, "starters"), sep = ",", index = False)
+            else:
+                pbp = pd.read_csv("../data/pbp/{}/{}.csv".format(season, gid))
+                _, starters = get_pbp_and_starters(gid, pbp = pbp)
+                starters.to_csv("../data/pbp/{}/{}_{}.csv".format(season, gid, "starters"), sep = ",", index = False)
